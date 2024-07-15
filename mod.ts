@@ -6,14 +6,18 @@ import {
 import Module from "node:module";
 import __path from "node:path";
 
+interface AEntry extends Entry {
+  buffer: Uint8Array;
+}
+
 // nodejs - exports
 // image - binary
 // sounds - binary
 // wasm - binary
 export class AssetsModule {
   private url: string;
-  private rootEntry!: Entry;
-  private entires: Entry[] = [];
+  private rootEntry!: AEntry;
+  private entires: AEntry[] = [];
   private jsModules: Record<string, any> = {};
   private oRequire = Module.prototype.require;
 
@@ -28,14 +32,14 @@ export class AssetsModule {
     const z = await Deno.open(this.url);
     const zr = new ZipReader(z.readable);
     const en = await zr.getEntries();
-    this.rootEntry = en.shift()!;
-    this.entires = en;
+    this.rootEntry = en.shift()! as AEntry;
+    this.entires = en as AEntry[];
 
     await Promise.all<void>(
       this.entires.map(async (entry) => {
         if (!entry.directory) {
           const w = new Uint8ArrayWriter();
-          await entry.getData(w);
+          await entry.getData?.(w);
           const buffer = await w.getData();
           entry.buffer = buffer;
         }
@@ -43,7 +47,7 @@ export class AssetsModule {
     );
   }
 
-  private findEntry(path: string): Entry {
+  private findEntry(path: string): AEntry {
     const base = this.rootEntry.filename;
     const ext = __path.extname(path);
     const id = __path.join(base, path + (ext.length > 0 ? "" : ".js"));
@@ -58,7 +62,6 @@ export class AssetsModule {
   }
 
   hookRequire = (_path: string) => {
-    console.log("=== require", _path);
     const isRelative = _path.startsWith("./");
     if (isRelative) {
       const entry = this.findEntry(_path);
@@ -106,7 +109,7 @@ export class AssetsModule {
     // @ts-ignore
     Module.prototype.require = this.hookRequire;
     try {
-      const result = this.hookRequire(path);
+      const result = this.hookRequire(new URL(path, import.meta.url).pathname);
       Module.prototype.require = this.oRequire;
       return result;
     } catch (e) {
