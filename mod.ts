@@ -25,7 +25,7 @@ export class AssetsModule {
     if (!url.endsWith(".dasset")) {
       throw new Error("Invalid file type");
     }
-    this.url = url;
+    this.url = new URL(url, import.meta.url).pathname;
   }
 
   async load() {
@@ -62,6 +62,9 @@ export class AssetsModule {
   }
 
   hookRequire = (_path: string) => {
+    if (_path.startsWith("/")) {
+      _path = "." + _path;
+    }
     const isRelative = _path.startsWith("./");
     if (isRelative) {
       const entry = this.findEntry(_path);
@@ -109,7 +112,7 @@ export class AssetsModule {
     // @ts-ignore
     Module.prototype.require = this.hookRequire;
     try {
-      const result = this.hookRequire(new URL(path, import.meta.url).pathname);
+      const result = this.hookRequire(path);
       Module.prototype.require = this.oRequire;
       return result;
     } catch (e) {
