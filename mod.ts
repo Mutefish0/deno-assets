@@ -10,10 +10,6 @@ interface AEntry extends Entry {
   buffer: Uint8Array;
 }
 
-// nodejs - exports
-// image - binary
-// sounds - binary
-// wasm - binary
 export class AssetsModule {
   private url: string;
   private rootEntry!: AEntry;
@@ -25,7 +21,7 @@ export class AssetsModule {
     if (!url.endsWith(".dasset")) {
       throw new Error("Invalid file type");
     }
-    this.url = new URL(url, import.meta.url).pathname;
+    this.url = url;
   }
 
   async load() {
@@ -75,13 +71,8 @@ export class AssetsModule {
           const decoder = new TextDecoder();
           const src = decoder.decode(entry.buffer!);
 
-          // console.log("===============================");
-          // console.log(`file ${entry.filename}`);
-          // console.log("--------------------------------");
-          // console.log(src);
-          // console.log("===============================");
-
           const mod = new Module(entry.filename);
+          // @ts-ignore
           mod._compile(src, entry.filename);
           this.jsModules[entry.filename] = mod.exports;
         }
