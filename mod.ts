@@ -21,7 +21,7 @@ export class AssetsModule {
     if (!url.endsWith(".dasset")) {
       throw new Error("Invalid file type");
     }
-    this.url = url;
+    this.url = url.replace("file://", "");
   }
 
   async load() {
