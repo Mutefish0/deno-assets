@@ -1,8 +1,8 @@
 import {
   ZipReader,
-  Entry,
   Uint8ArrayWriter,
-} from "https://deno.land/x/zipjs/index.js";
+} from "https://deno.land/x/zipjs@v2.7.47/lib/zip-data-uri.js";
+import type { Entry } from "https://deno.land/x/zipjs@v2.7.47/index.js";
 import Module from "node:module";
 import __path from "node:path";
 
@@ -16,6 +16,7 @@ export class AssetsModule {
   private entires: AEntry[] = [];
   private jsModules: Record<string, any> = {};
   private oRequire = Module.prototype.require;
+  private requireStatck: string[] = [];
 
   constructor(url: string) {
     if (!url.endsWith(".dasset")) {
@@ -35,6 +36,7 @@ export class AssetsModule {
       this.entires.map(async (entry) => {
         if (!entry.directory) {
           const w = new Uint8ArrayWriter();
+          // @ts-ignore
           await entry.getData?.(w);
           const buffer = await w.getData();
           entry.buffer = buffer;
@@ -44,17 +46,34 @@ export class AssetsModule {
   }
 
   private findEntry(path: string): AEntry {
-    const base = this.rootEntry.filename;
-    const ext = __path.extname(path);
-    const id = __path.join(base, path + (ext.length > 0 ? "" : ".js"));
-
+    const id = this.resolve(path);
     const entry = this.entires.find((e) => e.filename === id);
-
     if (!entry) {
       throw new Error(`Entry not found: ${id}`);
     }
-
     return entry;
+  }
+
+  private resolve(path: string) {
+    const base =
+      this.requireStatck[this.requireStatck.length - 1] ||
+      this.rootEntry.filename;
+    const ext = __path.extname(path);
+    const id = __path.join(base, path + (ext.length > 0 ? "" : ".js"));
+    return id;
+  }
+
+  private processRequireStack(path: string, func: () => void) {
+    const top = this.requireStatck[this.requireStatck.length - 1];
+    const dir = __path.dirname(path);
+    const changeDir = dir !== top;
+    if (changeDir) {
+      this.requireStatck.push(dir);
+    }
+    func();
+    if (changeDir) {
+      this.requireStatck.pop();
+    }
   }
 
   hookRequire = (_path: string) => {
@@ -70,11 +89,12 @@ export class AssetsModule {
         if (!this.jsModules[entry.filename]) {
           const decoder = new TextDecoder();
           const src = decoder.decode(entry.buffer!);
-
           const mod = new Module(entry.filename);
-          // @ts-ignore
-          mod._compile(src, entry.filename);
-          this.jsModules[entry.filename] = mod.exports;
+          this.processRequireStack(entry.filename, () => {
+            // @ts-ignore
+            mod._compile(src, entry.filename);
+            this.jsModules[entry.filename] = mod.exports;
+          });
         }
         return this.jsModules[entry.filename];
       } else if (entry.filename.endsWith(".node")) {
@@ -104,9 +124,11 @@ export class AssetsModule {
     Module.prototype.require = this.hookRequire;
     try {
       const result = this.hookRequire(path);
+      this.requireStatck = [];
       Module.prototype.require = this.oRequire;
       return result;
     } catch (e) {
+      this.requireStatck = [];
       Module.prototype.require = this.oRequire;
       throw e;
     }
