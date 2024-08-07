@@ -1,6 +1,7 @@
 import {
   ZipReader,
   Uint8ArrayWriter,
+  Uint8ArrayReader,
 } from "https://deno.land/x/zipjs@v2.7.47/lib/zip-data-uri.js";
 import type { Entry } from "https://deno.land/x/zipjs@v2.7.47/index.js";
 import Module from "node:module";
@@ -10,24 +11,30 @@ interface AEntry extends Entry {
   buffer: Uint8Array;
 }
 
+type Source = string | Uint8Array;
+
 export class AssetsModule {
-  private url: string;
   private rootEntry!: AEntry;
   private entires: AEntry[] = [];
   private jsModules: Record<string, any> = {};
   private oRequire = Module.prototype.require;
   private requireStatck: string[] = [];
 
-  constructor(url: string) {
-    if (!url.endsWith(".dasset")) {
-      throw new Error("Invalid file type");
-    }
-    this.url = url.replace("file://", "");
-  }
+  constructor() {}
 
-  async load() {
-    const z = await Deno.open(this.url);
-    const zr = new ZipReader(z.readable);
+  async load(src: Source) {
+    let zr: ZipReader;
+    if (typeof src === "string") {
+      const url = src.replace("file://", "");
+      const z = await Deno.open(url);
+      zr = new ZipReader(z.readable);
+    } else if (src instanceof Uint8Array) {
+      const u = new Uint8ArrayReader(src);
+      zr = new ZipReader(u);
+    } else {
+      throw new Error("Ivalic source");
+    }
+
     const en = await zr.getEntries();
     this.rootEntry = en.shift()! as AEntry;
     this.entires = en as AEntry[];

@@ -1,1 +1,6 @@
-{}
+{
+  "name": "@mutefish/deno-assets-module",
+  "version": "0.0.1",
+  "exports": "./mod.ts",
+  "tasks": {}
+}
