@@ -2,8 +2,8 @@ import {
   ZipReader,
   Uint8ArrayWriter,
   Uint8ArrayReader,
-} from "https://deno.land/x/zipjs@v2.7.47/lib/zip-data-uri.js";
-import type { Entry } from "https://deno.land/x/zipjs@v2.7.47/index.js";
+} from "jsr:@zip-js/zip-js@2.7.48/data-uri";
+import type { Entry } from "jsr:@zip-js/zip-js@2.7.48/";
 import Module from "node:module";
 import __path from "node:path";
 
@@ -83,7 +83,7 @@ export class AssetsModule {
     }
   }
 
-  hookRequire = (_path: string) => {
+  hookRequire = (_path: string): any => {
     if (_path.startsWith("/")) {
       _path = "." + _path;
     }
@@ -126,7 +126,7 @@ export class AssetsModule {
     }
   };
 
-  require(path: string) {
+  require(path: string): any {
     // @ts-ignore
     Module.prototype.require = this.hookRequire;
     try {
