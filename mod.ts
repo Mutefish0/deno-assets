@@ -126,7 +126,10 @@ export class AssetsModule {
     }
   };
 
-  require(path: string): any {
+  require(path: string, external = false): any {
+    if (external) {
+      return this.oRequire(path);
+    }
     // @ts-ignore
     Module.prototype.require = this.hookRequire;
     try {
